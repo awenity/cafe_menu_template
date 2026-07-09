@@ -137,4 +137,60 @@
                                 <h4 class="font-bold text-sm md:text-base text-zinc-100">${item.name}</h4>
                                 <span class="text-luxuryGold font-serif font-bold text-sm">$${item.price.toFixed(2)}</span>
                             </div>
-                            <p class="text-xs text
+                            <p class="text-xs text-zinc-400 line-clamp-2 mt-1">${item.description || ''}</p>
+                        </div>
+                        <div class="flex gap-1 mt-1">${tagBadges}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Filter Handlers globally exposed
+        window.filterCategory = function(category) {
+            currentCategory = category;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-luxuryGold', 'text-darkBg', 'font-medium');
+                btn.classList.add('bg-zinc-800', 'text-zinc-300');
+            });
+            event.target.classList.remove('bg-zinc-800', 'text-zinc-300');
+            event.target.classList.add('bg-luxuryGold', 'text-darkBg', 'font-medium');
+            renderMenu();
+        }
+
+        window.toggleDietaryTag = function(tag) {
+            const index = activeDietaryTags.indexOf(tag);
+            if(index > -1) {
+                activeDietaryTags.splice(index, 1);
+                event.target.classList.remove('bg-luxuryGold/20', 'text-luxuryGold', 'border-luxuryGold');
+                event.target.classList.add('border-zinc-700', 'text-zinc-400');
+            } else {
+                activeDietaryTags.push(tag);
+                event.target.classList.add('bg-luxuryGold/20', 'text-luxuryGold', 'border-luxuryGold');
+                event.target.classList.remove('border-zinc-700', 'text-zinc-400');
+            }
+            renderMenu();
+        }
+
+        // Kick off fetch on load
+        fetchMenu();
+    </script>
+
+    <script>
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        }
+
+        function copyWifi() {
+            const pass = document.getElementById('wifi-pass').innerText;
+            navigator.clipboard.writeText(pass);
+            alert('Wi-Fi Password copied to clipboard!');
+        }
+
+        function callWaiter() {
+            alert('🔔 Waiter has been notified. A team member will be with you shortly.');
+        }
+    </script>
+</body>
+</html>
