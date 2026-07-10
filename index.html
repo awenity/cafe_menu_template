@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Valley Pizza | Menu</title>
+    <title>Valley Pizza | Fast Food Menu</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -23,12 +23,10 @@
 </head>
 <body class="bg-darkBg text-gray-100 font-sans antialiased pb-24">
 
-    <!-- Header & Brand Styling -->
     <header class="p-6 text-center border-b border-zinc-800">
         <h1 class="text-3xl font-black tracking-tighter text-pizzaGold uppercase italic">🍕 Valley Pizza</h1>
-        <p class="text-xs text-zinc-400 mt-1 tracking-widest uppercase">Fresh & Fast Food</p>
+        <p class="text-xs text-zinc-400 mt-1 tracking-widest uppercase">Hot, Fresh & Lightning Fast</p>
         
-        <!-- Utility Action -->
         <div class="flex justify-center mt-4">
             <button onclick="toggleModal('wifi-modal')" class="bg-zinc-800 hover:bg-zinc-700 text-xs text-pizzaGold px-4 py-2 rounded-full border border-pizzaGold/20 flex items-center gap-2 transition">
                 <i class="fas fa-wifi"></i> Free Guest Wi-Fi
@@ -36,10 +34,10 @@
         </div>
     </header>
 
-    <!-- Fast-Food Specific Menu Categories -->
     <nav class="sticky top-0 bg-darkBg/90 backdrop-blur-md z-40 border-b border-zinc-800/80 py-3 px-4">
         <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 text-sm justify-start md:justify-center">
-            <button onclick="filterCategory('all')" class="cat-btn active bg-pizzaRed text-white font-bold px-5 py-1.5 rounded-full whitespace-nowrap">All</button>
+            <button onclick="filterCategory('all')" class="cat-btn active bg-pizzaRed text-white font-bold px-5 py-1.5 rounded-full whitespace-nowrap">All Menu</button>
+            <button onclick="filterCategory('deals')" class="cat-btn bg-zinc-800 text-zinc-300 px-5 py-1.5 rounded-full whitespace-nowrap">🔥 Hot Deals</button>
             <button onclick="filterCategory('pizzas')" class="cat-btn bg-zinc-800 text-zinc-300 px-5 py-1.5 rounded-full whitespace-nowrap">Pizzas</button>
             <button onclick="filterCategory('sides')" class="cat-btn bg-zinc-800 text-zinc-300 px-5 py-1.5 rounded-full whitespace-nowrap">Sides</button>
             <button onclick="filterCategory('drinks')" class="cat-btn bg-zinc-800 text-zinc-300 px-5 py-1.5 rounded-full whitespace-nowrap">Drinks</button>
@@ -51,14 +49,12 @@
         </div>
     </nav>
 
-    <!-- Main Dynamic Container -->
     <main class="max-w-4xl mx-auto px-4 mt-6">
         <div id="menu-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="col-span-full text-center text-zinc-500 py-12">Loading hot menu items...</div>
+            <div class="col-span-full text-center text-zinc-500 py-12">Loading hot food options...</div>
         </div>
     </main>
 
-    <!-- Wi-Fi Overlay Modal -->
     <div id="wifi-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-surfaceCard p-6 rounded-2xl border border-zinc-800 max-w-sm w-full text-center">
             <i class="fas fa-wifi text-4xl text-pizzaGold mb-3"></i>
@@ -82,22 +78,25 @@
             apiVersion: '2026-07-09'
         });
 
-        let allItems = [];
+        let menuData = { items: [], deals: [] };
         let currentCategory = 'all';
         let activeDietaryTags = [];
 
         async function fetchMenu() {
-            const query = `*[_type == "menuItem" && isAvailable == true]{
-                name,
-                price,
-                description,
-                category,
-                tags,
-                "imageUrl": image.asset->url
+            // Dual-query setup fetching active deals and items simultaneously
+            const query = `{
+                "items": *[_type == "menuItem" && isAvailable == true]{
+                    name, price, description, category, tags, flavors,
+                    "imageUrl": image.asset->url
+                },
+                "deals": *[_type == "deal" && isAvailable == true]{
+                    name, price, description,
+                    "imageUrl": image.asset->url
+                }
             }`;
             
             try {
-                allItems = await client.fetch(query);
+                menuData = await client.fetch(query);
                 renderMenu();
             } catch (error) {
                 console.error("Error fetching data from Sanity:", error);
@@ -109,36 +108,72 @@
             const container = document.getElementById('menu-container');
             container.innerHTML = '';
 
-            const filtered = allItems.filter(item => {
-                const matchesCategory = currentCategory === 'all' || item.category === currentCategory;
-                const matchesTags = activeDietaryTags.every(tag => item.tags && item.tags.includes(tag));
-                return matchesCategory && matchesTags;
-            });
+            let combinedList = [];
 
-            if(filtered.length === 0) {
+            // If user selects 'All' or 'Deals', prepare deals for formatting
+            if (currentCategory === 'all' || currentCategory === 'deals') {
+                menuData.deals.forEach(d => {
+                    combinedList.push({ ...d, category: 'deals', isDeal: true });
+                });
+            }
+
+            // Prepare standalone food items
+            if (currentCategory !== 'deals') {
+                const filteredItems = menuData.items.filter(item => {
+                    const matchesCategory = currentCategory === 'all' || item.category === currentCategory;
+                    const matchesTags = activeDietaryTags.every(tag => item.tags && item.tags.includes(tag));
+                    return matchesCategory && matchesTags;
+                });
+                combinedList = combinedList.concat(filteredItems);
+            }
+
+            if(combinedList.length === 0) {
                 container.innerHTML = '<p class="text-zinc-500 col-span-full text-center py-8">No items match your choice.</p>';
                 return;
             }
 
-            filtered.forEach(item => {
+            combinedList.forEach(item => {
                 const card = document.createElement('div');
-                card.className = "bg-surfaceCard rounded-xl overflow-hidden shadow-lg border border-zinc-800/60 flex h-32";
                 
-                const tagBadges = item.tags ? item.tags.map(t => `<span class="bg-zinc-900 text-pizzaGold text-[10px] px-1.5 py-0.5 rounded">${t}</span>`).join(' ') : '';
+                // Highlight deals visually to boost revenue 
+                const cardBorder = item.isDeal ? 'border-pizzaGold bg-gradient-to-br from-surfaceCard to-zinc-900' : 'border-zinc-800/60 bg-surfaceCard';
+                card.className = `rounded-xl overflow-hidden shadow-lg border flex h-36 ${cardBorder}`;
+                
+                // Render badges (Deal vs dietary preferences)
+                let badgesHTML = '';
+                if (item.isDeal) {
+                    badgesHTML = `<span class="bg-pizzaGold text-black font-black text-[9px] px-1.5 py-0.5 rounded tracking-tighter uppercase">PROMO COMBO</span>`;
+                } else if (item.tags) {
+                    badgesHTML = item.tags.map(t => `<span class="bg-zinc-900 text-pizzaGold text-[10px] px-1.5 py-0.5 rounded">${t}</span>`).join(' ');
+                }
+
+                // Render variant flavors cleanly underneath descriptions
+                let extraInfoHTML = '';
+                if (item.flavors && item.flavors.length > 0) {
+                    extraInfoHTML = `
+                        <div class="mt-1 overflow-hidden">
+                            <p class="text-[10px] uppercase text-pizzaGold font-bold tracking-tight">Flavors:</p>
+                            <p class="text-[10px] text-zinc-400 truncate">${item.flavors.join(', ')}</p>
+                        </div>
+                    `;
+                }
 
                 card.innerHTML = `
-                    <div class="w-1/3 h-full relative bg-zinc-900">
+                    <div class="w-1/3 h-full relative bg-zinc-900 flex-shrink-0">
                         <img src="${item.imageUrl || 'https://via.placeholder.com/150'}" alt="${item.name}" class="w-full h-full object-cover" loading="lazy">
                     </div>
-                    <div class="w-2/3 p-4 flex flex-col justify-between">
-                        <div>
+                    <div class="w-2/3 p-3 flex flex-col justify-between min-w-0">
+                        <div class="min-w-0">
                             <div class="flex justify-between items-start gap-2">
-                                <h4 class="font-black text-sm md:text-base text-zinc-100 uppercase tracking-tight">${item.name}</h4>
-                                <span class="text-pizzaGold font-black text-sm">$${item.price.toFixed(2)}</span>
+                                <h4 class="font-black text-sm md:text-base text-zinc-100 uppercase tracking-tight truncate">${item.name}</h4>
+                                <span class="text-pizzaGold font-black text-sm flex-shrink-0">$${item.price.toFixed(2)}</span>
                             </div>
-                            <p class="text-xs text-zinc-400 line-clamp-2 mt-1">${item.description || ''}</p>
+                            <p class="text-xs text-zinc-400 line-clamp-2 mt-0.5">${item.description || ''}</p>
                         </div>
-                        <div class="flex gap-1 mt-1">${tagBadges}</div>
+                        <div class="flex flex-col gap-1">
+                            ${extraInfoHTML}
+                            <div class="flex gap-1 items-center mt-0.5">${badgesHTML}</div>
+                        </div>
                     </div>
                 `;
                 container.appendChild(card);
